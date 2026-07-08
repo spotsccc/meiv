@@ -4,18 +4,46 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
+function assertAuthJsonShape(authJson: string) {
+  const parsed = JSON.parse(authJson) as {
+    tokens?: {
+      access_token?: unknown;
+      refresh_token?: unknown;
+      account_id?: unknown;
+    };
+  };
+
+  if (
+    typeof parsed.tokens?.access_token !== "string" ||
+    typeof parsed.tokens?.refresh_token !== "string" ||
+    typeof parsed.tokens?.account_id !== "string"
+  ) {
+    throw new Error(
+      "OPENAI_OAUTH_AUTH_JSON_B64 must contain your full ~/.codex/auth.json with tokens.access_token, tokens.refresh_token, and tokens.account_id.",
+    );
+  }
+}
+
 function resolveAuthFilePath() {
   const encodedAuthJson = process.env.OPENAI_OAUTH_AUTH_JSON_B64;
   const rawAuthJson = process.env.OPENAI_OAUTH_AUTH_JSON;
 
   if (!encodedAuthJson && !rawAuthJson) {
+    if (process.env.VERCEL) {
+      throw new Error(
+        "OPENAI_OAUTH_AUTH_JSON_B64 is required on Vercel. Add it to the same Vercel environment you deploy to, then redeploy.",
+      );
+    }
+
     return process.env.HOME ? `${process.env.HOME}/.codex/auth.json` : undefined;
   }
 
   const authJson = encodedAuthJson
-    ? Buffer.from(encodedAuthJson, "base64").toString("utf8")
+    ? Buffer.from(encodedAuthJson.replace(/\s/g, ""), "base64").toString(
+        "utf8",
+      )
     : rawAuthJson!;
-  JSON.parse(authJson);
+  assertAuthJsonShape(authJson);
 
   const authFilePath = join(tmpdir(), "codex-auth.json");
   mkdirSync(dirname(authFilePath), { recursive: true });
