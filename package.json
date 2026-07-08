@@ -16,6 +16,7 @@
     "@vercel/connect": "0.2.2",
     "ai": "^7.0.0",
     "eve": "^0.22.0",
+    "openai-oauth-provider": "^1.0.3",
     "zod": "4.4.3"
   },
   "devDependencies": {
@@ -25,5 +26,4 @@
   "engines": {
     "node": "24.x"
   }
-
 }
