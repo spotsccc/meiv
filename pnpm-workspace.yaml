@@ -10,6 +10,8 @@ minimumReleaseAgeExclude:
   - rolldown
   - workflow
 allowBuilds:
+  bufferutil: true
+  esbuild: true
   sharp: false
 # Compatibility for eve releases with an incomplete runtime manifest.
 packageExtensions:

@@ -1,61 +1,46 @@
 import { defineAgent } from "eve";
-import { createOpenAIOAuth } from "openai-oauth-provider";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { wrapLanguageModel } from "ai";
+import { createConfiguredOpenAIOAuth } from "./lib/oauth/provider.js";
 
-function assertAuthJsonShape(authJson: string) {
-  const parsed = JSON.parse(authJson) as {
-    tokens?: {
-      access_token?: unknown;
-      refresh_token?: unknown;
-      account_id?: unknown;
-    };
-  };
+function stripEphemeralProviderState<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item) => {
+        if (!item || typeof item !== "object") return true;
 
-  if (
-    typeof parsed.tokens?.access_token !== "string" ||
-    typeof parsed.tokens?.refresh_token !== "string" ||
-    typeof parsed.tokens?.account_id !== "string"
-  ) {
-    throw new Error(
-      "OPENAI_OAUTH_AUTH_JSON_B64 must contain your full ~/.codex/auth.json with tokens.access_token, tokens.refresh_token, and tokens.account_id.",
-    );
-  }
-}
-
-function resolveAuthFilePath() {
-  const encodedAuthJson = process.env.OPENAI_OAUTH_AUTH_JSON_B64;
-  const rawAuthJson = process.env.OPENAI_OAUTH_AUTH_JSON;
-
-  if (!encodedAuthJson && !rawAuthJson) {
-    if (process.env.VERCEL) {
-      throw new Error(
-        "OPENAI_OAUTH_AUTH_JSON_B64 is required on Vercel. Add it to the same Vercel environment you deploy to, then redeploy.",
-      );
-    }
-
-    return process.env.HOME ? `${process.env.HOME}/.codex/auth.json` : undefined;
+        const part = item as Record<string, unknown>;
+        return part.type !== "reasoning" || part.text !== "";
+      })
+      .map(stripEphemeralProviderState) as T;
   }
 
-  const authJson = encodedAuthJson
-    ? Buffer.from(encodedAuthJson.replace(/\s/g, ""), "base64").toString(
-        "utf8",
-      )
-    : rawAuthJson!;
-  assertAuthJsonShape(authJson);
+  if (!value || typeof value !== "object") return value;
 
-  const authFilePath = join(tmpdir(), "codex-auth.json");
-  mkdirSync(dirname(authFilePath), { recursive: true });
-  writeFileSync(authFilePath, authJson, { encoding: "utf8", mode: 0o600 });
-
-  return authFilePath;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => key !== "providerOptions")
+      .map(([key, nestedValue]) => [
+        key,
+        stripEphemeralProviderState(nestedValue),
+      ]),
+  ) as T;
 }
 
-const openai = createOpenAIOAuth({
-  authFilePath: resolveAuthFilePath(),
+const openai = createConfiguredOpenAIOAuth();
+
+const model = wrapLanguageModel({
+  model: openai("gpt-5.5"),
+  middleware: {
+    // Codex OAuth responses are not stored upstream. Vercel Workflow can resume
+    // in a fresh instance, where itemId references from a prior turn no longer
+    // exist in the provider's in-memory cache, so send the full message history.
+    transformParams: async ({ params }) => ({
+      ...params,
+      prompt: stripEphemeralProviderState(params.prompt),
+    }),
+  },
 });
 
 export default defineAgent({
-  model: openai("gpt-5.5"),
+  model,
 });

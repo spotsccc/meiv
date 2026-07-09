@@ -8,20 +8,40 @@
   },
   "scripts": {
     "build": "eve build",
+    "db:generate": "drizzle-kit generate",
     "dev": "eve dev",
+    "oauth:export-b64": "tsx scripts/oauth.ts export-b64",
+    "oauth:import": "tsx scripts/oauth.ts import",
+    "oauth:migrate": "tsx scripts/oauth.ts migrate",
+    "oauth:prepare-production": "tsx scripts/oauth.ts prepare-production",
+    "oauth:refresh": "tsx scripts/oauth.ts refresh",
+    "oauth:status": "tsx scripts/oauth.ts status",
     "start": "eve start",
+    "test": "vitest run",
     "typecheck": "tsc"
   },
   "dependencies": {
+    "@neondatabase/serverless": "1.1.0",
     "@vercel/connect": "0.2.2",
     "ai": "^7.0.0",
+    "bufferutil": "4.1.0",
+    "drizzle-orm": "1.0.0-rc.4",
     "eve": "^0.22.0",
     "openai-oauth-provider": "^1.0.3",
+    "ws": "8.21.0",
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@testcontainers/postgresql": "12.0.4",
     "@types/node": "24.x",
-    "typescript": "7.0.1-rc"
+    "@types/pg": "8.20.0",
+    "@types/ws": "8.18.1",
+    "dotenv": "17.4.2",
+    "drizzle-kit": "1.0.0-rc.4",
+    "pg": "8.16.3",
+    "tsx": "4.23.0",
+    "typescript": "7.0.1-rc",
+    "vitest": "4.1.10"
   },
   "engines": {
     "node": "24.x"
