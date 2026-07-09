@@ -1,5 +1,5 @@
 import { telegramChannel } from "eve/channels/telegram";
 
 export default telegramChannel({
-  botUsername: "Agents",
+  botUsername: "agents_swarm_bot",
 });
