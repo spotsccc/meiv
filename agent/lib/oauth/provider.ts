@@ -7,9 +7,11 @@ import { decodeEncryptionKey } from "./crypto.js";
 import { NeonOAuthDatabaseRunner } from "./database.js";
 import { OAuthConfigurationError } from "./errors.js";
 import {
+  createAudioTranscriptionAuthFetch,
   createCodexAuthFetch,
   createUnavailableOAuthFetch,
 } from "./fetch.js";
+import { LocalOAuthTokenStore } from "./local-token-store.js";
 import { NeonOAuthTokenStore } from "./token-store.js";
 
 type Environment = Record<string, string | undefined>;
@@ -45,6 +47,18 @@ function writePlaceholderAuthFile(): string {
   return authFilePath;
 }
 
+function createNeonOAuthTokenStore(env: Environment): NeonOAuthTokenStore {
+  const databaseRunner = new NeonOAuthDatabaseRunner(
+    requireEnvironmentValue(env, "DATABASE_URL"),
+  );
+  return new NeonOAuthTokenStore({
+    databaseRunner,
+    encryptionKey: decodeEncryptionKey(
+      requireEnvironmentValue(env, "OPENAI_OAUTH_ENCRYPTION_KEY"),
+    ),
+  });
+}
+
 export function createConfiguredOpenAIOAuth(env: Environment = process.env) {
   const mode = resolveOAuthRuntimeMode(env);
   if (mode === "local") {
@@ -60,19 +74,22 @@ export function createConfiguredOpenAIOAuth(env: Environment = process.env) {
     });
   }
 
-  const databaseRunner = new NeonOAuthDatabaseRunner(
-    requireEnvironmentValue(env, "DATABASE_URL"),
-  );
-  const tokenStore = new NeonOAuthTokenStore({
-    databaseRunner,
-    encryptionKey: decodeEncryptionKey(
-      requireEnvironmentValue(env, "OPENAI_OAUTH_ENCRYPTION_KEY"),
-    ),
-  });
+  const tokenStore = createNeonOAuthTokenStore(env);
 
   return createOpenAIOAuth({
     authFilePath,
     ensureFresh: false,
     fetch: createCodexAuthFetch(tokenStore),
   });
+}
+
+export function createConfiguredAudioTranscriptionFetch(
+  env: Environment = process.env,
+): typeof globalThis.fetch {
+  const mode = resolveOAuthRuntimeMode(env);
+  if (mode === "local") {
+    return createAudioTranscriptionAuthFetch(new LocalOAuthTokenStore());
+  }
+  if (mode === "unavailable") return createUnavailableOAuthFetch();
+  return createAudioTranscriptionAuthFetch(createNeonOAuthTokenStore(env));
 }

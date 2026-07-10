@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { OAuthCredentialsUnavailableError } from "../../agent/lib/oauth/errors.js";
 import { createUnavailableOAuthFetch } from "../../agent/lib/oauth/fetch.js";
 import {
+  createConfiguredAudioTranscriptionFetch,
   createConfiguredOpenAIOAuth,
   resolveOAuthRuntimeMode,
 } from "../../agent/lib/oauth/provider.js";
@@ -25,5 +26,12 @@ describe("OAuth runtime selection", () => {
     await expect(unavailableFetch("https://example.com")).rejects.toBeInstanceOf(
       OAuthCredentialsUnavailableError,
     );
+  });
+
+  it("fails closed for hosted audio transcription without Neon storage", async () => {
+    const audioFetch = createConfiguredAudioTranscriptionFetch({ VERCEL: "1" });
+    await expect(
+      audioFetch("https://api.openai.com/v1/audio/transcriptions"),
+    ).rejects.toBeInstanceOf(OAuthCredentialsUnavailableError);
   });
 });
